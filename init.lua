@@ -1,3 +1,5 @@
+bmp180 = require("bmp180")
+
 door_open = "none"
 
 m = mqtt.Client("clientid", 120, nil, nil)
@@ -32,7 +34,6 @@ function gpio_init()
 end
 
 function gpio_door()
-	print("Status: " .. gpio.read(0) .. " door_open: " .. door_open)
 	if (gpio.read(0) == 0 and door_open ~= 0) then
 		door_open = 0
 		m:publish("door/status", "close", 0, 1)
@@ -42,7 +43,23 @@ function gpio_door()
 	end
 end
 
+function bmp180_init()
+	print("bmp_init()")
+	bmp180.init(1, 2)
+end
+
+function bmp180_senddata()
+	bmp180.read(2)
+	t = bmp180.getTemperature()
+	t_t = (t/10) .. "." .. (t%10)
+	p = bmp180.getPressure()
+	p_t = (p/100) .. "." .. (p%100)
+	m:publish("sensors/door/temperature", t_t, 0, 1)
+	m:publish("sensors/door/pressure", p_t, 0, 1)
+end
+
 function wlan_init()
+	print("wlan_init()")
 	wifi.sta.eventMonReg(wifi.STA_GOTIP, function() mqtt_init() end)
 
 	wifi.setmode(wifi.STATION)
@@ -68,11 +85,14 @@ function mqtt_parsestatus(msg)
 end
 
 function mqtt_subscribe()
+	print("mqtt_subscribe()")
 	m:subscribe("status/status",0, function(client) print("subscribe success") end)
 	tmr.start(0)
+	tmr.start(1)
 end
 
 function mqtt_init()
+	print("mqtt_init()")
 	m:on("message", mqtt_parsemsg)
 	m:on("connect", function(client) mqtt_subscribe() end)
 
@@ -82,6 +102,7 @@ end
 function timer_init()
 	print("timer_init()")
 	tmr.register(0, 100, tmr.ALARM_AUTO, gpio_door)
+	tmr.register(1, 10000, tmr.ALARM_AUTO, bmp180_senddata)
 end
 
 ws2812.init()
@@ -91,5 +112,6 @@ led_off()
 gpio_init()
 wlan_init()
 timer_init()
+bmp180_init()
 
 -- mqtt_init()
