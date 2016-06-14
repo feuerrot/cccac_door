@@ -1,6 +1,8 @@
 bmp180 = require("bmp180")
 
 door_open = "none"
+shutdown = 0
+status = "public"
 
 m = mqtt.Client("clientid", 120, nil, nil)
 
@@ -71,22 +73,38 @@ end
 function mqtt_parsemsg(client, topic, data)
 	if topic == "status/status" then
 		mqtt_parsestatus(data)
+	elseif topic == "runlevel" then
+		mqtt_parserunlevel(data)
 	end
 end
 
 function mqtt_parsestatus(msg)
-	if msg == "public" then
-		led_green()
-	elseif msg == "private" then
-		led_blue()
-	elseif msg == "closed" then
-		led_red()
+	status = msg
+	if shutdown == 0 then
+		if status == "public" then
+			led_green()
+		elseif status == "private" then
+			led_blue()
+		elseif status == "closed" then
+			led_red()
+		end
+	end
+end
+
+function mqtt_parserunlevel(msg)
+	if msg == "launch" then
+		shutdown = 0
+		mqtt_parsestatus(status)
+	elseif msg == "shutdown" then
+		shutdown = 1
+		led_off()
 	end
 end
 
 function mqtt_subscribe()
 	print("mqtt_subscribe()")
-	m:subscribe("status/status",0, function(client) print("subscribe success") end)
+	m:subscribe("status/status",0, function(client) print("subscribe success: status/status") end)
+	m:subscribe("runlevel",0, function(client) print("subscribe success: runlevel") end)
 	tmr.start(0)
 	tmr.start(1)
 end
