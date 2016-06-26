@@ -34,7 +34,6 @@ end
 
 function mqtt_init()
 	print("mqtt_init()")
-	m:on("message", mqtt_parsemsg)
 	m:on("connect", function(client) mqtt_connected() end)
 
 	m:connect("172.20.122.11")
